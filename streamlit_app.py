@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-import wrangler as wr
+import awswrangler as wr
 import os
 from datetime import date
 
