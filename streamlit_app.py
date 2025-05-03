@@ -14,7 +14,8 @@ if "data" not in st.session_state:
 # ---- ฟังก์ชันจัดการข้อมูล ----
 def get_user_file(username):
     """ สร้างชื่อไฟล์ตามชื่อผู้ใช้ """
-    return f"data_{username}.csv"
+    #return f"data_{username}.csv"
+    return f's3://income-expense-tracker-webapp/user_data/{username}'
 
 def load_user_data(username):
     """ โหลดข้อมูลจากไฟล์ CSV ของผู้ใช้ """
