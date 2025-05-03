@@ -5,11 +5,11 @@ import awswrangler as wr
 import os
 from datetime import date
 
-st.set_page_config(page_title="รายรับ-รายจ่าย & สุขภาพ", layout="wide")
+st.set_page_config(page_title="Income-Expense & Healthy", layout="wide")
 
 # ---- Initial Session State ----
 if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame(columns=["วันที่", "ประเภท", "กลุ่มรายจ่าย", "รายการ", "จำนวนเงิน", "เมนู", "แคลอรี่"])
+    st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
 
 # ---- ฟังก์ชันจัดการข้อมูล ----
 def get_user_file(username):
@@ -21,9 +21,9 @@ def load_user_data(username):
     """ โหลดข้อมูลจากไฟล์ CSV ของผู้ใช้ """
     file_path = get_user_file(username)
     if os.path.exists(file_path):
-        return pd.read_csv(file_path, parse_dates=["วันที่"])
+        return pd.read_csv(file_path, parse_dates=["Date"]) 
     else:
-        return pd.DataFrame(columns=["วันที่", "ประเภท", "กลุ่มรายจ่าย", "รายการ", "จำนวนเงิน", "เมนู", "แคลอรี่"])
+        return pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
 
 def save_user_data(username, df):
     """ บันทึกข้อมูลลงในไฟล์ CSV ของผู้ใช้ """
@@ -60,7 +60,7 @@ if selected_user == "➕ สร้างผู้ใช้ใหม่":
         if new_username.strip() != "":
             selected_user = new_username.strip()
             st.session_state.username = selected_user  # กำหนดชื่อผู้ใช้ใหม่ใน session_state
-            st.session_state.data = pd.DataFrame(columns=["วันที่", "ประเภท", "กลุ่มรายจ่าย", "รายการ", "จำนวนเงิน", "เมนู", "แคลอรี่"])
+            st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
             # รีเฟรชหน้าหลังจากเลือกชื่อใหม่ โดยไม่ใช้ `st.experimental_rerun()`
             st.session_state.selected_user_initialized = True  # ตั้งค่า session_state ว่าเลือกผู้ใช้แล้ว
         else:
@@ -117,9 +117,9 @@ with tab1:
     with st.form("form_record", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            date_input = st.date_input("วันที่", value=date.today())
-            transaction_type = st.radio("ประเภท", ["รายรับ", "รายจ่าย"])
-            if transaction_type == "รายจ่าย":
+            date_input = st.date_input("Date", value=date.today())
+            transaction_type = st.radio("Type", ["Income", "Expense"])
+            if transaction_type == "Expense":
                 category = st.selectbox("กลุ่มรายจ่าย", expense_categories)
             else:
                 category = "-"
@@ -133,13 +133,13 @@ with tab1:
 
         if submitted:
             new_data = pd.DataFrame({
-                "วันที่": [pd.to_datetime(date_input)],
-                "ประเภท": [transaction_type],
-                "กลุ่มรายจ่าย": [category],
-                "รายการ": [description],
-                "จำนวนเงิน": [amount],
-                "เมนู": [menu],
-                "แคลอรี่": [calories],
+                "Date": [pd.to_datetime(date_input)],
+                "Type": [transaction_type],
+                "Expense category": [category],
+                "Lists": [description],
+                "Amount": [amount],
+                "Menu": [menu],
+                "Calories": [calories],
             })
 
             st.session_state.data = pd.concat([st.session_state.data, new_data], ignore_index=True)
@@ -151,11 +151,11 @@ with tab2:
     st.subheader("📋 ดูข้อมูลย้อนหลัง")
     if not st.session_state.data.empty:
         df = st.session_state.data
-        df_display = df.sort_values(by="วันที่", ascending=False)
+        df_display = df.sort_values(by="Date", ascending=False)
         st.dataframe(df_display, use_container_width=True)
 
-        total_income = df[df["ประเภท"] == "รายรับ"]["จำนวนเงิน"].sum()
-        total_expense = df[df["ประเภท"] == "รายจ่าย"]["จำนวนเงิน"].sum()
+        total_income = df[df["Type"] == "Income"]["Amount"].sum()
+        total_expense = df[df["Type"] == "Income"]["Amount"].sum()
 
         col1, col2 = st.columns(2)
         col1.metric("💰 รายรับรวม", f"{total_income:,.2f} บาท")
@@ -170,12 +170,12 @@ with tab3:
         df = st.session_state.data
 
         today = pd.to_datetime(date.today())
-        df_today = df[df["วันที่"] == today]
+        df_today = df[df["Date"] == today]
 
         # --- สรุปวันนี้ ---
         st.markdown("### 📅 สรุปข้อมูลวันนี้")
-        today_calories = df_today["แคลอรี่"].sum()
-        today_expenses = df_today[df_today["ประเภท"] == "รายจ่าย"]["จำนวนเงิน"].sum()
+        today_calories = df_today["Calories"].sum()
+        today_expenses = df_today[df_today["Type"] == "Expense"]["Amount"].sum()
 
         col1, col2 = st.columns(2)
         col1.metric("🔥 แคลอรี่ที่ได้รับวันนี้", f"{today_calories:,.0f} kcal")
@@ -193,13 +193,13 @@ with tab3:
 
         # --- สรุปเดือนนี้ ---
         st.markdown("### 📅 สรุปข้อมูลเดือนนี้")
-        df['เดือน'] = df['วันที่'].dt.to_period('M')
+        df['เดือน'] = df['Date'].dt.to_period('M')
         this_month = today.to_period('M')
         df_month = df[df['เดือน'] == this_month]
 
-        month_calories = df_month["แคลอรี่"].sum()
-        month_expenses = df_month[df_month["ประเภท"] == "รายจ่าย"]["จำนวนเงิน"].sum()
-        month_income = df_month[df_month["ประเภท"] == "รายรับ"]["จำนวนเงิน"].sum()
+        month_calories = df_month["Calories"].sum()
+        month_expenses = df_month[df_month["Type"] == "Expense"]["Amount"].sum()
+        month_income = df_month[df_month["Type"] == "Income"]["Amount"].sum()
 
         col3, col4, col5 = st.columns(3)
         col3.metric("🔥 แคลอรี่เดือนนี้", f"{month_calories:,.0f} kcal")
@@ -207,23 +207,23 @@ with tab3:
         col5.metric("💰 รายรับเดือนนี้", f"{month_income:,.2f} บาท")
 
         # --- กราฟรายจ่าย-รายรับ ---
-        daily_expenses = df_month[df_month["ประเภท"] == "รายจ่าย"].groupby("วันที่").agg({"จำนวนเงิน": "sum"}).reset_index()
-        daily_income = df_month[df_month["ประเภท"] == "รายรับ"].groupby("วันที่").agg({"จำนวนเงิน": "sum"}).reset_index()
+        daily_expenses = df_month[df_month["Type"] == "Expense"].groupby("Date").agg({"Amount": "sum"}).reset_index()
+        daily_income = df_month[df_month["ประเภท"] == "Income"].groupby("Date").agg({"Amount": "sum"}).reset_index()
 
         st.markdown("### 📈 กราฟรายจ่ายในเดือนนี้")
         expense_chart = alt.Chart(daily_expenses).mark_bar(color="skyblue").encode(
-            x="วันที่:T",
-            y="จำนวนเงิน:Q",
-            tooltip=["วันที่:T", "จำนวนเงิน:Q"]
+            x="Date:T",
+            y="Amount:Q",
+            tooltip=["Date:T", "Amount:Q"]
         ).properties(width=700, height=400)
 
         st.altair_chart(expense_chart, use_container_width=True)
 
         st.markdown("### 📈 กราฟรายรับในเดือนนี้")
         income_chart = alt.Chart(daily_income).mark_bar(color="orange").encode(
-            x="วันที่:T",
-            y="จำนวนเงิน:Q",
-            tooltip=["วันที่:T", "จำนวนเงิน:Q"]
+            x="Date:T",
+            y="Amount:Q",
+            tooltip=["Date:T", "Amount:Q"]
         ).properties(width=700, height=400)
 
         st.altair_chart(income_chart, use_container_width=True)
