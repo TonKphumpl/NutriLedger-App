@@ -25,8 +25,10 @@ def load_user_data(username):
 
 def save_user_data(username, df):
     """ บันทึกข้อมูลลงในไฟล์ CSV ของผู้ใช้ """
-    file_path = get_user_file(username)
-    df.to_csv(file_path, index=False)
+    #file_path = get_user_file(username)
+    file_path = f's3://income-expense-tracker-webapp/user_data/{username}'
+    #df.to_csv(file_path, index=False)
+    wr.s3.to_csv(file_path, index=False)
 
 # ---- Sidebar : เลือกผู้ใช้งาน ----
 st.sidebar.title("👤 ผู้ใช้งาน")
