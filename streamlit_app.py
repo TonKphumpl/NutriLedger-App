@@ -28,13 +28,30 @@ def load_user_data(username):
 def save_user_data(username, df):
     """ บันทึกข้อมูลลงในไฟล์ CSV ของผู้ใช้ """
     #file_path = get_user_file(username)
-    file_path = f's3://income-expense-tracker-webapp/user_data/{username}/data.csv'
+    # user_list = [f.split("_")[1].replace(".csv", "") for f in os.listdir() if f.startswith("data_") and f.endswith(".csv")]
+    #file_path = f's3://income-expense-tracker-webapp/user_data/{username}/data.csv'
+    file_path = f's3://income-expense-tracker-webapp/user_data/data_{username}.csv'
     #df.to_csv(file_path, index=False)
     wr.s3.to_csv(df=df, path=file_path, index=False)
 
 # ---- Sidebar : เลือกผู้ใช้งาน ----
-st.sidebar.title("👤 ผู้ใช้งาน")
-user_list = [f.split("_")[1].replace(".csv", "") for f in os.listdir() if f.startswith("data_") and f.endswith(".csv")]
+# st.sidebar.title("👤 ผู้ใช้งาน")
+# user_list = [f.split("_")[1].replace(".csv", "") for f in os.listdir() if f.startswith("data_") and f.endswith(".csv")]
+# selected_user = st.sidebar.selectbox("เลือกผู้ใช้", user_list + ["➕ สร้างผู้ใช้ใหม่"])
+# Define S3 folder where user CSVs are stored
+s3_prefix = "s3://income-expense-tracker-webapp/user_data/"
+
+# List all CSV files in the S3 folder
+file_list = wr.s3.list_objects(s3_prefix)
+
+# Extract usernames from file names like 'data_<username>.csv'
+user_list = [
+    os.path.basename(f).split("_")[1].replace(".csv", "")
+    for f in file_list
+    if f.endswith(".csv") and os.path.basename(f).startswith("data_")
+]
+
+# Add option to create a new user
 selected_user = st.sidebar.selectbox("เลือกผู้ใช้", user_list + ["➕ สร้างผู้ใช้ใหม่"])
 
 if selected_user == "➕ สร้างผู้ใช้ใหม่":
