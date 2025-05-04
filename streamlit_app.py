@@ -138,8 +138,8 @@ with tab2:
         df_display = df.sort_values(by="date_", ascending=False)
         st.dataframe(df_display, use_container_width=True)
 
-        total_income = df[df["Type"] == "Income"]["amount"].sum()
-        total_expense = df[df["Type"] == "Expense"]["amount"].sum()
+        total_income = df[df["type_"] == "Income"]["amount"].sum()
+        total_expense = df[df["type_"] == "Expense"]["amount"].sum()
 
         col1, col2 = st.columns(2)
         col1.metric("💰 Total Income", f"{total_income:,.2f} THB")
