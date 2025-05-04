@@ -9,7 +9,7 @@ st.set_page_config(page_title="Income-Expense & Healthy", layout="wide")
 
 # ---- Initial Session State ----
 if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
+    st.session_state.data = pd.DataFrame(columns=["date_", "type_", "expense_category", "lists", "amount", "menu", "calories"])
 
 # ---- Data Management Functions ----
 def get_user_file(username):
@@ -22,7 +22,7 @@ def load_user_data(username):
     if os.path.exists(file_path):
         return pd.read_csv(file_path, parse_dates=["Date"]) 
     else:
-        return pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
+        return pd.DataFrame(columns=["date_", "type_", "expense_category", "lists", "amount", "menu", "calories"])
 
 def save_user_data(username, df):
     """ Save user data to CSV file """
@@ -45,7 +45,7 @@ if selected_user == "➕ Create New User":
         if new_username.strip() != "":
             selected_user = new_username.strip()
             st.session_state.username = selected_user
-            st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
+            st.session_state.data = pd.DataFrame(columns=["date_", "type_", "expense_category", "lists", "amount", "menu", "calories"])
             st.session_state.selected_user_initialized = True
         else:
             st.sidebar.error("⚠️ Please enter a valid username!")
@@ -101,8 +101,8 @@ with tab1:
     with st.form("form_record", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            date_input = st.date_input("Date", value=date.today())
-            transaction_type = st.radio("Type", ["Income", "Expense"])
+            date_input = st.date_input("date_", value=date.today())
+            transaction_type = st.radio("type_", ["Income", "Expense"])
             if transaction_type == "Expense":
                 category = st.selectbox("Expense Category", expense_categories)
             else:
@@ -117,13 +117,13 @@ with tab1:
 
         if submitted:
             new_data = pd.DataFrame({
-                "Date": [pd.to_datetime(date_input)],
-                "Type": [transaction_type],
-                "Expense category": [category],
-                "Lists": [description],
-                "Amount": [amount],
-                "Menu": [menu],
-                "Calories": [calories],
+                "date_": [pd.to_datetime(date_input)],
+                "type_": [transaction_type],
+                "expense_category": [category],
+                "lists": [description],
+                "amount": [amount],
+                "menu": [menu],
+                "calories": [calories],
             })
 
             st.session_state.data = pd.concat([st.session_state.data, new_data], ignore_index=True)
@@ -135,11 +135,11 @@ with tab2:
     st.subheader("📋 Entry History")
     if not st.session_state.data.empty:
         df = st.session_state.data
-        df_display = df.sort_values(by="Date", ascending=False)
+        df_display = df.sort_values(by="date_", ascending=False)
         st.dataframe(df_display, use_container_width=True)
 
-        total_income = df[df["Type"] == "Income"]["Amount"].sum()
-        total_expense = df[df["Type"] == "Expense"]["Amount"].sum()
+        total_income = df[df["Type"] == "Income"]["amount"].sum()
+        total_expense = df[df["Type"] == "Expense"]["amount"].sum()
 
         col1, col2 = st.columns(2)
         col1.metric("💰 Total Income", f"{total_income:,.2f} THB")
@@ -154,12 +154,12 @@ with tab3:
         df = st.session_state.data
 
         today = pd.to_datetime(date.today())
-        df_today = df[df["Date"] == today]
+        df_today = df[df["date_"] == today]
 
         # --- Today Summary ---
         st.markdown("### 📅 Today's Summary")
-        today_calories = df_today["Calories"].sum()
-        today_expenses = df_today[df_today["Type"] == "Expense"]["Amount"].sum()
+        today_calories = df_today["calories"].sum()
+        today_expenses = df_today[df_today["type_"] == "Expense"]["amount"].sum()
 
         col1, col2 = st.columns(2)
         col1.metric("🔥 Calories Today", f"{today_calories:,.0f} kcal")
@@ -177,13 +177,13 @@ with tab3:
 
         # --- This Month Summary ---
         st.markdown("### 📅 Monthly Summary")
-        df['Month'] = df['Date'].dt.to_period('M')
+        df['Month'] = df['date_'].dt.to_period('M')
         this_month = today.to_period('M')
         df_month = df[df['Month'] == this_month]
 
-        month_calories = df_month["Calories"].sum()
-        month_expenses = df_month[df_month["Type"] == "Expense"]["Amount"].sum()
-        month_income = df_month[df_month["Type"] == "Income"]["Amount"].sum()
+        month_calories = df_month["calories"].sum()
+        month_expenses = df_month[df_month["type_"] == "Expense"]["amount"].sum()
+        month_income = df_month[df_month["type_"] == "Income"]["amount"].sum()
 
         col3, col4, col5 = st.columns(3)
         col3.metric("🔥 Monthly Calories", f"{month_calories:,.0f} kcal")
@@ -191,8 +191,8 @@ with tab3:
         col5.metric("💰 Monthly Income", f"{month_income:,.2f} THB")
 
         # --- Income/Expense Graphs ---
-        daily_expenses = df_month[df_month["Type"] == "Expense"].groupby("Date").agg({"Amount": "sum"}).reset_index()
-        daily_income = df_month[df_month["Type"] == "Income"].groupby("Date").agg({"Amount": "sum"}).reset_index()
+        daily_expenses = df_month[df_month["type_"] == "Expense"].groupby("date_").agg({"amount": "sum"}).reset_index()
+        daily_income = df_month[df_month["type_"] == "Income"].groupby("date_").agg({"amount": "sum"}).reset_index()
 
         st.markdown("### 📈 Daily Expenses")
         expense_chart = alt.Chart(daily_expenses).mark_bar(color="skyblue").encode(
