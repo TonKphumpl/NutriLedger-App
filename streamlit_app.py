@@ -11,14 +11,13 @@ st.set_page_config(page_title="Income-Expense & Healthy", layout="wide")
 if "data" not in st.session_state:
     st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
 
-# ---- ฟังก์ชันจัดการข้อมูล ----
+# ---- Data Management Functions ----
 def get_user_file(username):
-    """ สร้างชื่อไฟล์ตามชื่อผู้ใช้ """
-    #return f"data_{username}.csv"
+    """ Generate file path based on username """
     return f's3://income-expense-tracker-webapp/user_data/{username}'
 
 def load_user_data(username):
-    """ โหลดข้อมูลจากไฟล์ CSV ของผู้ใช้ """
+    """ Load user data from CSV """
     file_path = get_user_file(username)
     if os.path.exists(file_path):
         return pd.read_csv(file_path, parse_dates=["Date"]) 
@@ -26,60 +25,45 @@ def load_user_data(username):
         return pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
 
 def save_user_data(username, df):
-    """ บันทึกข้อมูลลงในไฟล์ CSV ของผู้ใช้ """
-    #file_path = get_user_file(username)
-    # user_list = [f.split("_")[1].replace(".csv", "") for f in os.listdir() if f.startswith("data_") and f.endswith(".csv")]
-    #file_path = f's3://income-expense-tracker-webapp/user_data/{username}/data.csv'
+    """ Save user data to CSV file """
     file_path = f's3://income-expense-tracker-webapp/user_data/data_{username}.csv'
-    #df.to_csv(file_path, index=False)
     wr.s3.to_csv(df=df, path=file_path, index=False)
 
-# ---- Sidebar : เลือกผู้ใช้งาน ----
-# st.sidebar.title("👤 ผู้ใช้งาน")
-# user_list = [f.split("_")[1].replace(".csv", "") for f in os.listdir() if f.startswith("data_") and f.endswith(".csv")]
-# selected_user = st.sidebar.selectbox("เลือกผู้ใช้", user_list + ["➕ สร้างผู้ใช้ใหม่"])
-# Define S3 folder where user CSVs are stored
+# ---- Sidebar: User Selection ----
 s3_prefix = "s3://income-expense-tracker-webapp/user_data/"
-
-# List all CSV files in the S3 folder
 file_list = wr.s3.list_objects(s3_prefix)
-
-# Extract usernames from file names like 'data_<username>.csv'
 user_list = [
     os.path.basename(f).split("_")[1].replace(".csv", "")
     for f in file_list
     if f.endswith(".csv") and os.path.basename(f).startswith("data_")
 ]
+selected_user = st.sidebar.selectbox("Select User", user_list + ["➕ Create New User"])
 
-# Add option to create a new user
-selected_user = st.sidebar.selectbox("เลือกผู้ใช้", user_list + ["➕ สร้างผู้ใช้ใหม่"])
-
-if selected_user == "➕ สร้างผู้ใช้ใหม่":
-    new_username = st.sidebar.text_input("กรอกชื่อผู้ใช้ใหม่")
-    if st.sidebar.button("สร้าง"):
+if selected_user == "➕ Create New User":
+    new_username = st.sidebar.text_input("Enter new username")
+    if st.sidebar.button("Create"):
         if new_username.strip() != "":
             selected_user = new_username.strip()
-            st.session_state.username = selected_user  # กำหนดชื่อผู้ใช้ใหม่ใน session_state
+            st.session_state.username = selected_user
             st.session_state.data = pd.DataFrame(columns=["Date", "Type", "Expense category", "Lists", "Amount", "Menu", "Calories"])
-            # รีเฟรชหน้าหลังจากเลือกชื่อใหม่ โดยไม่ใช้ `st.experimental_rerun()`
-            st.session_state.selected_user_initialized = True  # ตั้งค่า session_state ว่าเลือกผู้ใช้แล้ว
+            st.session_state.selected_user_initialized = True
         else:
-            st.sidebar.error("⚠️ กรุณากรอกชื่อผู้ใช้!")
+            st.sidebar.error("⚠️ Please enter a valid username!")
 
-if selected_user and selected_user != "➕ สร้างผู้ใช้ใหม่":
+if selected_user and selected_user != "➕ Create New User":
     if "username" not in st.session_state or st.session_state.username != selected_user:
         st.session_state.username = selected_user
         st.session_state.data = load_user_data(selected_user)
 
-# ---- Sidebar : ตั้งค่าเป้าหมาย ----
-st.sidebar.title("🎯 เป้าหมายส่วนตัว")
+# ---- Sidebar: Goal Settings ----
+st.sidebar.title("🎯 Personal Goals")
 
 target_calories = st.sidebar.number_input(
-    "เป้าหมายแคลอรี่ต่อวัน (kcal)", min_value=100, max_value=5000,
+    "Daily Calorie Target (kcal)", min_value=100, max_value=5000,
     value=st.session_state.get("target_calories", 2000), step=50
 )
 target_expense = st.sidebar.number_input(
-    "เป้าหมายรายจ่ายต่อวัน (บาท)", min_value=0, max_value=100000,
+    "Daily Expense Target (THB)", min_value=0, max_value=100000,
     value=st.session_state.get("target_expense", 500), step=50
 )
 
@@ -87,49 +71,49 @@ st.session_state.target_calories = target_calories
 st.session_state.target_expense = target_expense
 
 # ---- Main Content ----
-st.title("📒 บันทึกรายรับ-รายจ่าย และสุขภาพการกิน")
+st.title("📒 Income-Expense and Healthy Eating Tracker")
 
-tab1, tab2, tab3 = st.tabs(["➕ บันทึกข้อมูล", "📋 ดูข้อมูลย้อนหลัง", "📊 Dashboard สุขภาพ"])
+tab1, tab2, tab3 = st.tabs(["➕ Record Entry", "📋 History", "📊 Health Dashboard"])
 
-# ---- ตัวเลือกเมนูอาหาร/เครื่องดื่ม ----
+# ---- Menu Options ----
 menu_options = {
-    "ข้าวต้มปลา": 325,
-    "ข้าวซอยไก่": 390,
-    "กาแฟ": 180,
-    "ชาเขียว": 150,
-    "ข้าวผัดหมู": 450,
-    "ส้มตำไทย": 120,
-    "น้ำเปล่า": 0,
+    "Rice Soup with Fish": 325,
+    "Khao Soi Chicken": 390,
+    "Coffee": 180,
+    "Green Tea": 150,
+    "Fried Rice with Pork": 450,
+    "Papaya Salad (Thai Style)": 120,
+    "Water": 0,
 }
 
 expense_categories = [
-    "ค่าอาหาร และเครื่องดื่ม",
-    "ค่าเดินทาง (ค่ารถ/ค่าน้ำมัน)",
-    "ของใช้ในบ้าน",
-    "ค่าเสื้อผ้า/เครื่องสำอาง",
-    "ค่ารักษาพยาบาล",
-    "ค่าใช้จ่ายอื่นๆ (โปรดระบุ)",
+    "Food and Drinks",
+    "Transportation (Fare/Fuel)",
+    "Household Items",
+    "Clothing/Cosmetics",
+    "Medical Expenses",
+    "Other Expenses (please specify)",
 ]
 
-# ---- Tab 1 : บันทึกข้อมูล ----
+# ---- Tab 1: Record Entry ----
 with tab1:
-    st.subheader("➕ บันทึกข้อมูลใหม่")
+    st.subheader("➕ New Entry")
     with st.form("form_record", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             date_input = st.date_input("Date", value=date.today())
             transaction_type = st.radio("Type", ["Income", "Expense"])
             if transaction_type == "Expense":
-                category = st.selectbox("กลุ่มรายจ่าย", expense_categories)
+                category = st.selectbox("Expense Category", expense_categories)
             else:
                 category = "-"
-            description = st.text_input("รายการ (ระบุได้เอง)")
+            description = st.text_input("Description")
         with col2:
-            amount = st.number_input("จำนวนเงิน (บาท)", min_value=0.0, step=1.0)
-            menu = st.selectbox("เมนูอาหาร/เครื่องดื่ม", ["-"] + list(menu_options.keys()))
+            amount = st.number_input("Amount (THB)", min_value=0.0, step=1.0)
+            menu = st.selectbox("Food/Drink Menu", ["-"] + list(menu_options.keys()))
             calories = menu_options.get(menu, 0) if menu != "-" else 0
 
-        submitted = st.form_submit_button("บันทึกข้อมูล")
+        submitted = st.form_submit_button("Submit")
 
         if submitted:
             new_data = pd.DataFrame({
@@ -144,73 +128,73 @@ with tab1:
 
             st.session_state.data = pd.concat([st.session_state.data, new_data], ignore_index=True)
             save_user_data(st.session_state.username, st.session_state.data)
-            st.success("✅ บันทึกข้อมูลเรียบร้อยแล้ว!")
+            st.success("✅ Entry saved successfully!")
 
-# ---- Tab 2 : ดูข้อมูลย้อนหลัง ----
+# ---- Tab 2: History ----
 with tab2:
-    st.subheader("📋 ดูข้อมูลย้อนหลัง")
+    st.subheader("📋 Entry History")
     if not st.session_state.data.empty:
         df = st.session_state.data
         df_display = df.sort_values(by="Date", ascending=False)
         st.dataframe(df_display, use_container_width=True)
 
         total_income = df[df["Type"] == "Income"]["Amount"].sum()
-        total_expense = df[df["Type"] == "Income"]["Amount"].sum()
+        total_expense = df[df["Type"] == "Expense"]["Amount"].sum()
 
         col1, col2 = st.columns(2)
-        col1.metric("💰 รายรับรวม", f"{total_income:,.2f} บาท")
-        col2.metric("💸 รายจ่ายรวม", f"{total_expense:,.2f} บาท")
+        col1.metric("💰 Total Income", f"{total_income:,.2f} THB")
+        col2.metric("💸 Total Expense", f"{total_expense:,.2f} THB")
     else:
-        st.info("ยังไม่มีข้อมูลที่บันทึกไว้")
+        st.info("No entries recorded yet.")
 
-# ---- Tab 3 : Dashboard สุขภาพ ----
+# ---- Tab 3: Health Dashboard ----
 with tab3:
-    st.subheader("📊 Dashboard สุขภาพการบริโภค")
+    st.subheader("📊 Consumption Dashboard")
     if not st.session_state.data.empty:
         df = st.session_state.data
 
         today = pd.to_datetime(date.today())
         df_today = df[df["Date"] == today]
 
-        # --- สรุปวันนี้ ---
-        st.markdown("### 📅 สรุปข้อมูลวันนี้")
+        # --- Today Summary ---
+        st.markdown("### 📅 Today's Summary")
         today_calories = df_today["Calories"].sum()
         today_expenses = df_today[df_today["Type"] == "Expense"]["Amount"].sum()
 
         col1, col2 = st.columns(2)
-        col1.metric("🔥 แคลอรี่ที่ได้รับวันนี้", f"{today_calories:,.0f} kcal")
-        col2.metric("💸 รายจ่ายวันนี้", f"{today_expenses:,.2f} บาท")
+        col1.metric("🔥 Calories Today", f"{today_calories:,.0f} kcal")
+        col2.metric("💸 Expenses Today", f"{today_expenses:,.2f} THB")
 
         # --- Progress Bar ---
         percent = min(today_calories / target_calories, 1.0)
         st.progress(percent, text=f"{today_calories:.0f} / {target_calories} kcal")
         if today_calories > target_calories:
-            st.error("⚠️ คุณได้รับพลังงานเกินเป้าหมายวันนี้!")
+            st.error("⚠️ You exceeded your calorie goal today!")
         else:
-            st.success("✅ อยู่ในเกณฑ์ที่กำหนด ดีมากเลยครับ!")
+            st.success("✅ You're within your target range. Great job!")
 
         st.divider()
 
-        # --- สรุปเดือนนี้ ---
-        st.markdown("### 📅 สรุปข้อมูลเดือนนี้")
-        df['เดือน'] = df['Date'].dt.to_period('M')
+        # --- This Month Summary ---
+        st.markdown("### 📅 Monthly Summary")
+        df['Month'] = df['Date'].dt.to_period('M')
         this_month = today.to_period('M')
-        df_month = df[df['เดือน'] == this_month]
+        df_month = df[df['Month'] == this_month]
 
         month_calories = df_month["Calories"].sum()
         month_expenses = df_month[df_month["Type"] == "Expense"]["Amount"].sum()
         month_income = df_month[df_month["Type"] == "Income"]["Amount"].sum()
 
         col3, col4, col5 = st.columns(3)
-        col3.metric("🔥 แคลอรี่เดือนนี้", f"{month_calories:,.0f} kcal")
-        col4.metric("💸 รายจ่ายเดือนนี้", f"{month_expenses:,.2f} บาท")
-        col5.metric("💰 รายรับเดือนนี้", f"{month_income:,.2f} บาท")
+        col3.metric("🔥 Monthly Calories", f"{month_calories:,.0f} kcal")
+        col4.metric("💸 Monthly Expenses", f"{month_expenses:,.2f} THB")
+        col5.metric("💰 Monthly Income", f"{month_income:,.2f} THB")
 
-        # --- กราฟรายจ่าย-รายรับ ---
+        # --- Income/Expense Graphs ---
         daily_expenses = df_month[df_month["Type"] == "Expense"].groupby("Date").agg({"Amount": "sum"}).reset_index()
-        daily_income = df_month[df_month["ประเภท"] == "Income"].groupby("Date").agg({"Amount": "sum"}).reset_index()
+        daily_income = df_month[df_month["Type"] == "Income"].groupby("Date").agg({"Amount": "sum"}).reset_index()
 
-        st.markdown("### 📈 กราฟรายจ่ายในเดือนนี้")
+        st.markdown("### 📈 Daily Expenses")
         expense_chart = alt.Chart(daily_expenses).mark_bar(color="skyblue").encode(
             x="Date:T",
             y="Amount:Q",
@@ -219,7 +203,7 @@ with tab3:
 
         st.altair_chart(expense_chart, use_container_width=True)
 
-        st.markdown("### 📈 กราฟรายรับในเดือนนี้")
+        st.markdown("### 📈 Daily Income")
         income_chart = alt.Chart(daily_income).mark_bar(color="orange").encode(
             x="Date:T",
             y="Amount:Q",
