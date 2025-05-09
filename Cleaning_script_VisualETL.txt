@@ -1,0 +1,117 @@
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+import os
+import awswrangler as wr
+import pandas as pd
+import pymysql
+from datetime import datetime
+
+# Glue job parameters
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+def main():
+    # Init Glue contexts
+    sc = SparkContext()
+    glueContext = GlueContext(sc)
+    job = Job(glueContext)
+    job.init(args['JOB_NAME'], args)
+
+    # Config
+    s3_base_path = os.getenv('S3_BASE_PATH', 's3://income-expense-tracker-webapp/user_data/')
+    db_table = os.getenv('DB_TABLE', 'user_data')
+    db_connection = os.getenv('DB_CONNECTION', 'jdbc_connection')
+    db_schema = os.getenv('DB_SCHEMA', 'nutri')
+
+    print(f"📥 Reading dataset from S3: {s3_base_path}")
+    try:
+        df = wr.s3.read_csv(path=s3_base_path, sep=",", header=0)
+    except Exception as e:
+        print(f"❌ Failed to read data from S3. Error: {str(e)}")
+        job.commit()
+        return
+
+    if df.empty:
+        print(f"⚠️ No data rows found.")
+        job.commit()
+        return
+
+    print(f"✅ Loaded {len(df)} rows.")
+
+    # ✅ Rename columns to match MySQL table
+    df.rename(columns={
+        'Date': 'date_',
+        'Type': 'type_',
+        'Expense category': 'expense_category',
+        'Lists': 'lists',
+        'Amount': 'amount',
+        'Menu': 'menu',
+        'Calories': 'calories'
+    }, inplace=True)
+
+    # --- 🧹 Data Cleaning ---
+    df['date_'] = pd.to_datetime(df['date_'], errors='coerce')
+    bad_dates = df[df['date_'].isna()]
+    if not bad_dates.empty:
+        print(f"⚠️ Found {len(bad_dates)} rows with invalid date values. Dropping them.")
+    df = df.dropna(subset=['date_'])
+    df['date_'] = df['date_'].dt.date
+
+    # ✅ Only keep expected columns
+    required_columns = ['date_', 'type_', 'expense_category', 'lists', 'amount', 'menu', 'calories']
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        print(f"❌ Missing columns in data: {missing_cols}")
+        job.commit()
+        return
+    df = df[required_columns]
+
+    # Convert numeric columns
+    for col in ['amount', 'calories']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    print(f"🧾 DataFrame columns before write: {df.columns.tolist()}")
+    print(f"🔢 Sample data:\n{df.head()}")
+
+    # Connect to MySQL
+    try:
+        conn = wr.mysql.connect(connection=db_connection)
+        print(f"✅ Connected to MySQL")
+    except Exception as e:
+        print(f"❌ MySQL connection failed. Error: {str(e)}")
+        job.commit()
+        return
+
+    # --- 🔄 Full Load ---
+    print(f"🗑️ Deleting all existing records from {db_schema}.{db_table}")
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {db_schema}.{db_table}")
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ Failed to delete old records. Error: {str(e)}")
+
+    # --- ✅ Write to MySQL ---
+    print(f"📝 Writing {len(df)} cleaned rows to RDS")
+    try:
+        wr.mysql.to_sql(
+            df=df,
+            con=conn,
+            schema=db_schema,
+            table=db_table,
+            mode='append',
+            index=False
+        )
+        print(f"✅ Full data load completed.")
+    except Exception as e:
+        print(f"❌ Failed to write data. Error: {str(e)}")
+    finally:
+        conn.close()
+
+    job.commit()
+
+if __name__ == "__main__":
+    main()
