@@ -10,6 +10,11 @@ Description of the app :
 
 3. When a user records data in the web app, the data will be saved to a database and the dashboard will be updated every time new data is entered.
 
+## Flow Diagram
+
+![Project DE](https://github.com/user-attachments/assets/0eef3266-b3c1-4526-9d43-f4288e1b2155)
+
+
 ## Demo App
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/dataprofessor/st-app/)
